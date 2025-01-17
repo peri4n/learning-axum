@@ -3,6 +3,7 @@ use std::sync::Arc;
 use axum::extract::{Path, State};
 use axum::Json;
 use axum::{routing::get, routing::post, Router};
+use config::Config;
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
 async fn hello_world() -> &'static str {
@@ -32,6 +33,25 @@ async fn list_people(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
         .collect())
 }
 
+#[derive(Debug, Default, serde::Deserialize, PartialEq, Eq)]
+struct DbConfig {
+    user: String,
+    password: String,
+    host: String,
+    port: String,
+    name: String,
+}
+
+impl DbConfig {
+    pub fn connection_url(&self) -> String {
+        format!("postgres://{}:{}@{}:{}/{}", self.user, self.password, self.host, self.port, self.name)
+    }
+}
+
+#[derive(Debug, Default, serde::Deserialize, PartialEq, Eq)]
+struct AppConfig {
+    database: DbConfig
+}
 
 #[derive(Clone)]
 struct AppState {
@@ -40,11 +60,21 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    let database_url = "postgres://test:password@localhost:5432/mydatabase";
+    let config = Config::builder()
+        .add_source(
+            config::Environment::with_prefix("APP")
+                .try_parsing(true)
+                .separator("_")
+        )
+        .build()
+        .unwrap();
+
+    let app: AppConfig = config.try_deserialize().unwrap();
+    println!("{:?}", app);
 
     let pool = PgPoolOptions::new()
         .max_connections(5)
-        .connect(database_url)
+        .connect(&app.database.connection_url())
         .await
         .unwrap();
 

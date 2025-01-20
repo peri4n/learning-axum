@@ -4,7 +4,11 @@ use axum::extract::{Path, State};
 use axum::Json;
 use axum::{routing::get, routing::post, Router};
 use config::Config;
+use persistence::DbConfig;
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
+
+pub mod persistence;
+pub mod model;
 
 async fn hello_world() -> &'static str {
     "Hello world!"
@@ -31,21 +35,6 @@ async fn list_people(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
     Json(result.into_iter()
         .map(|row| row.get(0))
         .collect())
-}
-
-#[derive(Debug, Default, serde::Deserialize, PartialEq, Eq)]
-struct DbConfig {
-    user: String,
-    password: String,
-    host: String,
-    port: String,
-    name: String,
-}
-
-impl DbConfig {
-    pub fn connection_url(&self) -> String {
-        format!("postgres://{}:{}@{}:{}/{}", self.user, self.password, self.host, self.port, self.name)
-    }
 }
 
 #[derive(Debug, Default, serde::Deserialize, PartialEq, Eq)]

@@ -39,7 +39,7 @@ impl PersonRepo for Pg {
             .map(|res| res.get(0))
             .unwrap();
 
-        tx.commit().await;
+        let _ = tx.commit().await;
 
         Ok(Person { id: Some(person_id as u32), name: req.name.clone(), age: req.age })
     }

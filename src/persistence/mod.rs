@@ -22,7 +22,7 @@ impl DbConfig {
     }
 }
 
-trait PersonRepo {
+pub trait PersonRepo {
     async fn create_person(&self, req: &CreatePersonRequest) -> Result<Person, CreatePersonRequest>;
     fn update_person(&self, req: &UpdatePersonRequest) -> Result<Person, UpdatePersonRequest>;
     fn delete_person(&self, req: &DeletePersonRequest) -> Result<Person, DeletePersonRequest>;

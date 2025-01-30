@@ -4,7 +4,8 @@ use axum::extract::{Path, State};
 use axum::Json;
 use axum::{routing::get, routing::post, Router};
 use config::Config;
-use persistence::DbConfig;
+use persistence::postgres::Pg;
+use persistence::{DbConfig, PersonRepo};
 use sqlx::{postgres::PgPoolOptions, PgPool, Row};
 
 pub mod persistence;
@@ -13,29 +14,29 @@ pub mod model;
 async fn hello_world() -> &'static str {
     "Hello world!"
 }
-
-async fn create_people(State(state): State<Arc<AppState>>, Path(name): Path<String>) -> Json<String> {
-    let _ = sqlx::query(
-        "INSERT INTO people (name, age) VALUES ($1, 13)"
-    )
-    .bind(&name)
-    .execute(&state.db)
-    .await.unwrap();
-
-    Json(format!("{} created", name))
-}
-
-async fn list_people(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
-    let result = sqlx::query(
-        "SELECT name FROM people"
-    )
-    .fetch_all(&state.db)
-    .await.unwrap();
-
-    Json(result.into_iter()
-        .map(|row| row.get(0))
-        .collect())
-}
+//
+//async fn create_people(State(state): State<Arc<AppState>>, Path(name): Path<String>) -> Json<String> {
+//    let _ = sqlx::query(
+//        "INSERT INTO people (name, age) VALUES ($1, 13)"
+//    )
+//    .bind(&name)
+//    .execute(&state.db)
+//    .await.unwrap();
+//
+//    Json(format!("{} created", name))
+//}
+//
+//async fn list_people(State(state): State<Arc<AppState>>) -> Json<Vec<String>> {
+//    let result = sqlx::query(
+//        "SELECT name FROM people"
+//    )
+//    .fetch_all(&state.db)
+//    .await.unwrap();
+//
+//    Json(result.into_iter()
+//        .map(|row| row.get(0))
+//        .collect())
+//}
 
 #[derive(Debug, Default, serde::Deserialize, PartialEq, Eq)]
 struct AppConfig {
@@ -43,8 +44,8 @@ struct AppConfig {
 }
 
 #[derive(Clone)]
-struct AppState {
-    db: PgPool,
+struct AppState<PR: PersonRepo> {
+    person_repo: PR
 }
 
 #[tokio::main]
@@ -61,18 +62,14 @@ async fn main() {
     let app: AppConfig = config.try_deserialize().unwrap();
     println!("{:?}", app);
 
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&app.database.connection_url())
-        .await
-        .unwrap();
+    let pg = Pg::new(&app.database.connection_url()).await;
 
-    let state = Arc::new(AppState { db: pool });
+    let state = Arc::new(AppState { person_repo: pg });
 
     let router = Router::new()
         .route("/", get(hello_world))
-        .route("/people/{name}", post(create_people))
-        .route("/people", get(list_people))
+        //.route("/people/{name}", post(create_people))
+        //.route("/people", get(list_people))
         .with_state(state);
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
